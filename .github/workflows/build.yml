@@ -1,0 +1,57 @@
+name: Build Executable
+run-name: ${{ github.actor }} is running action!
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    name: Create Release
+    runs-on: windows-latest
+    steps:
+      - name: Get the version
+        id: get_version
+        run:
+          echo "TAG=${{ github.ref }}".Replace("refs/tags/", "") |
+          Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Print the version
+        run: echo $TAG
+  
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Installing Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.1.12
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Create Release
+        run: bun build ./vehicle_pack_organizer.ts --compile --outfile=vehicle_pack_organizer_v${{ env.TAG }}
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release v${{ env.TAG }}
+          body: Release v${{ env.TAG }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./vehicle_pack_organizer_v${{ env.TAG }}.exe
+          asset_name: vehicle_pack_organizer_v${{ env.TAG }}.exe
+          asset_content_type: application/octet-stream
